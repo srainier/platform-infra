@@ -18,3 +18,20 @@ def create_project() -> do.Project:
         purpose="Web Application",
         environment="Production",
     )
+
+
+def assign_project_resources(
+    project: do.Project,
+    pg_cluster: do.DatabaseCluster,
+    valkey_cluster: do.DatabaseCluster,
+) -> do.ProjectResources:
+    # VPCs are not assignable to DO Projects; databases are.
+    # URN format expected by the DO Projects API: do:dbaas:{cluster_id}
+    return do.ProjectResources(
+        "platform-project-resources",
+        project=project.id,
+        resources=[
+            pg_cluster.id.apply(lambda cid: f"do:dbaas:{cid}"),
+            valkey_cluster.id.apply(lambda cid: f"do:dbaas:{cid}"),
+        ],
+    )

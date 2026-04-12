@@ -10,10 +10,11 @@ valkey_size: str = config.require("valkey_size")
 domain: str = config.get("domain") or ""
 
 vpc = networking.create_vpc(region)
-_project = networking.create_project()
+project = networking.create_project()
 
 pg_cluster, pg_pool = postgres.create_postgres(region, pg_version, pg_size, vpc.id)
 valkey_cluster = valkey.create_valkey(region, valkey_size, vpc.id)
+networking.assign_project_resources(project, pg_cluster, valkey_cluster)
 dns_zone = dns.create_dns_zone(domain)
 
 outputs.export_all(
