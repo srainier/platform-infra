@@ -1,0 +1,7 @@
+name: platform-infra
+runtime:
+  name: python
+  options:
+    toolchain: uv
+    virtualenv: .venv
+description: Shared platform infrastructure for all projects
