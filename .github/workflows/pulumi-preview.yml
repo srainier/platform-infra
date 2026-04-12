@@ -38,6 +38,7 @@ jobs:
         with:
           command: preview
           stack-name: srainier/prod
+          upsert: true
           comment-on-pr: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
