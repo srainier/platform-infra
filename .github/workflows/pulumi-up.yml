@@ -1,0 +1,43 @@
+name: Pulumi Up
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  up:
+    name: Apply
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
+
+      - name: Type check (pyright)
+        run: uv run pyright
+
+      - name: Pulumi up
+        uses: pulumi/actions@v5
+        with:
+          command: up
+          stack-name: srainier/prod
+          upsert: true
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}

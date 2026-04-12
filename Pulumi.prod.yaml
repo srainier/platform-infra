@@ -1,0 +1,6 @@
+config:
+  platform-infra:do_region: nyc3
+  platform-infra:postgres_version: "18"
+  platform-infra:postgres_size: db-s-1vcpu-1gb
+  platform-infra:valkey_size: db-s-1vcpu-1gb
+  platform-infra:domain: ""
