@@ -22,7 +22,7 @@ def create_postgres(
     do.DatabaseFirewall(
         "platform-postgres-firewall",
         cluster_id=cluster.id,
-        rules=[do.DatabaseFirewallRuleArgs(type="vpc", value=vpc_id)],
+        rules=[do.DatabaseFirewallRuleArgs(type="ip_addr", value="10.10.0.0/16")],
     )
 
     pool = do.DatabaseConnectionPool(
