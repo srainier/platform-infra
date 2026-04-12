@@ -24,7 +24,7 @@ def create_valkey(
     do.DatabaseFirewall(
         "platform-valkey-firewall",
         cluster_id=cluster.id,
-        rules=[do.DatabaseFirewallRuleArgs(type="vpc", value=vpc_id)],
+        rules=[do.DatabaseFirewallRuleArgs(type="ip_addr", value="10.10.0.0/16")],
     )
 
     return cluster
