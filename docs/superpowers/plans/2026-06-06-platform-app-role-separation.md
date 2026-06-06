@@ -23,8 +23,8 @@
 > Updated after each task for resumability. Branch: `feat/app-owner-role-separation` (platform-infra).
 
 - [x] **Task 1 + 2** — trusted_app_ids → postgres + valkey firewalls — commit `9f872d9` (pyright + ruff clean). *Done as one commit; signatures use a required param (no mutable default).*
-- [ ] Task 3 — seed trusted_app_ids + preview (CHECKPOINT: needs DO token)
-- [ ] Task 4 — outputs hygiene
+- [~] Task 3 — seed trusted_app_ids done (commit `538ed80`); `pulumi preview` PENDING user checkpoint (needs DO token)
+- [x] Task 4 — outputs hygiene — commit `08dac84` (admin_password dropped, public host/uri outputs added; ruff + pyright clean)
 - [ ] Task 5 — onboard-app.sh script
 - [ ] Task 6 — verify onboarding idempotency (CHECKPOINT: needs DO token)
 - [ ] Task 7 — platform-infra README role separation
