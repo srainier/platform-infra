@@ -30,8 +30,14 @@
 - [x] Task 7 — platform-infra README role separation — commit `c00289c`
 - [x] Task 8 — platform-infra docs consistency audit — commit `1b1b4c3`
 - [x] Task 9 — platform-infra PR opened: https://github.com/srainier/platform-infra/pull/3 (MERGE pending your checkpoint + `pulumi preview`)
-- [ ] Task 10 — template generated README runbook (platform-app-template)
-- [ ] Task 11 — template docs consistency + PR (platform-app-template)
+- [x] Task 10 — template generated README runbook — commit `3789a3b` (copier render-check passed)
+- [x] Task 11 — template docs consistency + PR — commit `cfa891e`; PR opened: https://github.com/srainier/platform-app-template/pull/5
+
+### Remaining (your checkpoints — token / dashboard / merge)
+- Task 3 verify: `pulumi preview --stack prod` on platform-infra (confirm firewall adds the two app rules, no cluster replacement).
+- Task 6 verify: run `./scripts/onboard-app.sh hello-platform` (idempotent no-op, exit 0).
+- Grant yourself/others as app-owner per the new README section (Pulumi team Read + DO `app-deployer` role) — when you want to add a person.
+- Merge platform-infra PR #3 (after preview) and platform-app-template PR #5.
 
 ---
 
