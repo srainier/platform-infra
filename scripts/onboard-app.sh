@@ -108,7 +108,14 @@ import json, sys
 c = json.load(sys.stdin)['database']['connection']
 print(c['host'], c['port'], c['user'], c['password'])")
 
-MYIP=$(curl -sf https://ifconfig.me)
+# DO database firewalls (and the psql connection below) require an IPv4 source.
+# On dual-stack networks a plain `curl ifconfig.me` may return an IPv6 address,
+# which the firewall API silently rejects — force IPv4.
+MYIP=$(curl -4 -sf https://ifconfig.me) || {
+  echo "ERROR: could not determine an IPv4 address (curl -4 failed)." >&2
+  echo "       DO database firewalls require IPv4; this host appears IPv6-only." >&2
+  exit 1
+}
 echo "    temporarily trusting admin IP ${MYIP}…"
 curl -sf "${API}/databases/${PG_ID}/firewall" "${AUTH[@]}" -o "${WORKDIR}/fw.json"
 python3 -c "
@@ -144,7 +151,28 @@ json.dump({'rules': rules}, open('${WORKDIR}/fw_clean.json', 'w'))
 }
 trap 'remove_admin_ip; rm -rf "${WORKDIR}"' EXIT
 
-sleep 5
+# DO trusted-source changes are not instant — a fixed sleep races propagation.
+# Poll the cluster (as doadmin) until it accepts our newly-trusted IP, up to ~2m.
+echo "    waiting for the firewall change to take effect (up to ~5m)…"
+reachable=0
+for i in $(seq 1 30); do
+  if PGPASSWORD="${PW}" psql \
+       "host=${H} port=${P} dbname=${DB_NAME} user=${U} sslmode=require connect_timeout=5" \
+       -tAc 'select 1' >/dev/null 2>&1; then
+    reachable=1
+    break
+  fi
+  echo "      still waiting (~$((i * 10))s)…"
+  sleep 5
+done
+if [[ "${reachable}" != "1" ]]; then
+  echo "ERROR: ${H}:${P} unreachable after ~5m even with ${MYIP} trusted." >&2
+  echo "       Outbound ${P} is open, so this usually means the egress IP changed" >&2
+  echo "       mid-run (don't switch networks/VPN during onboarding) or DO propagation" >&2
+  echo "       stalled. Re-run on a single stable network; if it persists, run from a" >&2
+  echo "       DO droplet/cloud shell where the egress IP is unambiguous." >&2
+  exit 1
+fi
 
 PGPASSWORD="${PW}" psql \
   "host=${H} port=${P} dbname=${DB_NAME} user=${U} sslmode=require connect_timeout=20" \
