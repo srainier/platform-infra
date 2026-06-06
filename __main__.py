@@ -8,12 +8,13 @@ pg_version: str = config.require("postgres_version")
 pg_size: str = config.require("postgres_size")
 valkey_size: str = config.require("valkey_size")
 domain: str = config.get("domain") or ""
+trusted_app_ids: list[str] = config.get_object("trusted_app_ids") or []
 
 vpc = networking.create_vpc(region)
 project = networking.create_project()
 
-pg_cluster, pg_pool = postgres.create_postgres(region, pg_version, pg_size, vpc.id)
-valkey_cluster = valkey.create_valkey(region, valkey_size, vpc.id)
+pg_cluster, pg_pool = postgres.create_postgres(region, pg_version, pg_size, vpc.id, trusted_app_ids)
+valkey_cluster = valkey.create_valkey(region, valkey_size, vpc.id, trusted_app_ids)
 networking.assign_project_resources(project, pg_cluster, valkey_cluster)
 dns_zone = dns.create_dns_zone(domain)
 
