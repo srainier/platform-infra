@@ -18,6 +18,23 @@
 
 ---
 
+## Execution progress
+
+> Updated after each task for resumability. Branch: `feat/app-owner-role-separation` (platform-infra).
+
+- [x] **Task 1 + 2** — trusted_app_ids → postgres + valkey firewalls — commit `9f872d9` (pyright + ruff clean). *Done as one commit; signatures use a required param (no mutable default).*
+- [ ] Task 3 — seed trusted_app_ids + preview (CHECKPOINT: needs DO token)
+- [ ] Task 4 — outputs hygiene
+- [ ] Task 5 — onboard-app.sh script
+- [ ] Task 6 — verify onboarding idempotency (CHECKPOINT: needs DO token)
+- [ ] Task 7 — platform-infra README role separation
+- [ ] Task 8 — platform-infra docs consistency audit
+- [ ] Task 9 — open platform-infra PR (CHECKPOINT)
+- [ ] Task 10 — template generated README runbook (platform-app-template)
+- [ ] Task 11 — template docs consistency + PR (platform-app-template)
+
+---
+
 ## Phase 1 — platform-infra: declarative trusted-app firewall (#10)
 
 ### Task 1: Render `trusted_app_ids` into the Postgres firewall
