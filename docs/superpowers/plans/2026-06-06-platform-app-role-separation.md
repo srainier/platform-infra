@@ -23,21 +23,21 @@
 > Updated after each task for resumability. Branch: `feat/app-owner-role-separation` (platform-infra).
 
 - [x] **Task 1 + 2** — trusted_app_ids → postgres + valkey firewalls — commit `9f872d9` (pyright + ruff clean). *Done as one commit; signatures use a required param (no mutable default).*
-- [~] Task 3 — seed trusted_app_ids done (commit `538ed80`); `pulumi preview` PENDING user checkpoint (needs DO token)
+- [x] Task 3 — seed trusted_app_ids (commit `538ed80`); **verified 2026-06-06**: `pulumi preview --diff --refresh --stack prod` shows no firewall/cluster changes — rules went live via CI `pulumi up` after PR #3 merge (refresh surfaced only benign project-membership state drift).
 - [x] Task 4 — outputs hygiene — commit `08dac84` (admin_password dropped, public host/uri outputs added; ruff + pyright clean)
 - [x] Task 5 — onboard-app.sh script — commit `adc4dcc` (bash -n clean, idempotent, re-fetch-before-IP-removal). NOT executed.
-- [ ] Task 6 — verify onboarding idempotency (CHECKPOINT: needs DO token)
+- [x] Task 6 — **verified 2026-06-06** against hello-platform: idempotent (`already present; skipping config change`, `9 unchanged`), `GRANT` applied to `hello_platform_user`, admin IP added then removed. Verification surfaced two onboard-app.sh bugs (IPv6 admin IP rejected by DO firewall; fixed `sleep 5` racing trusted-source propagation) — fixed in PR #4 (force IPv4 + reachability poll), merged.
 - [x] Task 7 — platform-infra README role separation — commit `c00289c`
 - [x] Task 8 — platform-infra docs consistency audit — commit `1b1b4c3`
-- [x] Task 9 — platform-infra PR opened: https://github.com/srainier/platform-infra/pull/3 (MERGE pending your checkpoint + `pulumi preview`)
+- [x] Task 9 — platform-infra PR #3 **MERGED 2026-06-06**: https://github.com/srainier/platform-infra/pull/3
 - [x] Task 10 — template generated README runbook — commit `3789a3b` (copier render-check passed)
-- [x] Task 11 — template docs consistency + PR — commit `cfa891e`; PR opened: https://github.com/srainier/platform-app-template/pull/5
+- [x] Task 11 — template docs consistency + PR — commit `cfa891e`; PR #5 **MERGED 2026-06-06**: https://github.com/srainier/platform-app-template/pull/5
+- [x] **Follow-up** — onboard-app.sh hardening (force IPv4 admin-IP detection + poll for firewall propagation, replacing fixed `sleep`); PR #4 **MERGED 2026-06-06**: https://github.com/srainier/platform-infra/pull/4
 
-### Remaining (your checkpoints — token / dashboard / merge)
-- Task 3 verify: `pulumi preview --stack prod` on platform-infra (confirm firewall adds the two app rules, no cluster replacement).
-- Task 6 verify: run `./scripts/onboard-app.sh hello-platform` (idempotent no-op, exit 0).
-- Grant yourself/others as app-owner per the new README section (Pulumi team Read + DO `app-deployer` role) — when you want to add a person.
-- Merge platform-infra PR #3 (after preview) and platform-app-template PR #5.
+### Remaining
+**All implementation, verification, and merges are complete as of 2026-06-06** (PRs #3, #4, #5 merged; Tasks 3 and 6 verified against live infra).
+
+- Optional, on demand: grant a new app-owner per the README "Granting a new app-owner" section (Pulumi team Read + DO `app-deployer` custom role) — only when adding a person.
 
 ---
 
