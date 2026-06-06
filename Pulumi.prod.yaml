@@ -4,3 +4,8 @@ config:
   platform-infra:postgres_size: db-s-1vcpu-1gb
   platform-infra:valkey_size: db-s-1vcpu-1gb
   platform-infra:domain: ""
+  # App Platform app UUIDs allowed through the shared cluster firewalls.
+  # Managed by scripts/onboard-app.sh (admin) when onboarding a new app.
+  platform-infra:trusted_app_ids:
+    - fa236109-e18c-4bbe-a935-2862ea55f546
+    - 0704f1e8-d65c-44ed-b657-13462ade9dd6
