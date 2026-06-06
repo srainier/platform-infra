@@ -344,10 +344,16 @@ print(m[0]['id'] if m else '')")
 [[ -n "${PG_ID}" ]] || { echo "ERROR: platform-postgres cluster not found" >&2; exit 1; }
 
 echo "==> Adding ${APP_ID} to trusted_app_ids (idempotent)…"
-if pulumi config get --path trusted_app_ids --stack prod 2>/dev/null | grep -q "${APP_ID}"; then
+# Pulumi has no append-path syntax; compute the next index and set that element
+# explicitly (path + value as SEPARATE arguments).
+read -r PRESENT NEXT_INDEX < <(pulumi config --json --stack prod 2>/dev/null | python3 -c "
+import json, sys
+ids = json.load(sys.stdin).get('platform-infra:trusted_app_ids', {}).get('objectValue') or []
+print(int('${APP_ID}' in ids), len(ids))")
+if [[ "${PRESENT}" == "1" ]]; then
   echo "    already present; skipping config change"
 else
-  pulumi config set --path "trusted_app_ids[+]=${APP_ID}" --stack prod
+  pulumi config set --path "trusted_app_ids[${NEXT_INDEX}]" "${APP_ID}" --stack prod
 fi
 echo "==> pulumi up (reconciling firewalls)…"
 pulumi up --yes --stack prod

@@ -13,9 +13,18 @@ boundaries are real and enforced by Pulumi + DigitalOcean RBAC.
   DigitalOcean team Owner. Runs the one-time onboarding for each new app.
 - **App-owner** — owns an app repo scaffolded from `platform-app-template`.
   Can self-serve deploy their app but **cannot** modify shared infra (firewall,
-  clusters, VPC) or read platform secrets. They have Pulumi **Admin** on their
+  clusters, VPC) or read **privileged** platform secrets — notably the Postgres
+  `doadmin` password, which is never exported. They have Pulumi **Admin** on their
   own stack and **Read** on `platform-infra/prod`, plus a scoped DigitalOcean
   token (see "Granting a new app-owner").
+
+  > **Note on shared Valkey:** The threat model here is accidents + isolation of
+  > *privileged admin* secrets among *trusted* users — not multi-tenant isolation.
+  > Valkey has no per-app credential, so its password/URL (`redis_password`,
+  > `redis_url`) is a **deliberately shared** secret: every app-owner can read it
+  > via `StackReference` and all apps share one Valkey instance. If you need cache
+  > isolation between apps, that is a future per-app-cache story, not something the
+  > current outputs provide.
 
 ---
 
@@ -88,6 +97,14 @@ The script (idempotent) resolves the app's UUID, adds it to `trusted_app_ids`,
 runs `pulumi up` to reconcile the firewalls, then grants the app's DB user
 `CREATE` on schema `public`. Re-running it is safe.
 
+This is the **one sanctioned exception** to "changes reach prod only via `main`"
+(see [CI/CD](#cicd)): the script edits `Pulumi.prod.yaml` and applies it directly.
+To keep `main` in sync with production, it requires a clean `Pulumi.prod.yaml` to
+start and, on a config change, prints the exact `git add/commit/push` to run
+afterwards. **Commit and push that `trusted_app_ids` change immediately** —
+otherwise the next CI `pulumi up` from `main` will drop the new app from the
+firewalls and lock it out.
+
 Prerequisites: `pulumi login`, `psql` installed, and a write-scope DO token.
 
 ---
@@ -118,6 +135,18 @@ without admin rights to the platform.
 3. Have them generate a Personal Access Token (API → Tokens). With the custom
    role applied, the token inherits those scopes. They use it as
    `DIGITALOCEAN_TOKEN` locally and as a GitHub Actions secret in their app repo.
+
+> **Unverified — verify before relying on this boundary.** The `app-deployer`
+> role above (App Platform `*` + Databases Create/Read, no Update) is the
+> *intended* boundary, but it has **not** yet been validated against a real
+> scoped token. DigitalOcean's database scopes are per-resource-*type*, and it is
+> not yet confirmed that creating a per-app **database, user, and connection
+> pool** inside an existing shared cluster — and reading the generated user/pool
+> connection attributes — all classify as `database:create`/`database:read`
+> rather than `database:update`. If any of those calls require `database:update`,
+> app-owner self-service will fail before admin onboarding, and the role (or this
+> doc) must be loosened. First app-owner onboarding should run end-to-end with an
+> actual `app-deployer` token and record the exact scopes that proved sufficient.
 
 ---
 
@@ -157,8 +186,8 @@ do_region = platform.get_output("do_region")
 | `redis_host` | Valkey private hostname — **VPC only** |
 | `redis_host_public` | Valkey public hostname — **use this from App Platform apps** |
 | `redis_port` | Valkey port |
-| `redis_password` | Valkey auth password **(secret)** |
-| `redis_url` | Full Valkey connection URL, public URI **(secret)** — App Platform apps use this |
+| `redis_password` | Valkey auth password **(secret, shared across all apps)** |
+| `redis_url` | Full Valkey connection URL, public URI **(secret, shared across all apps)** — App Platform apps use this |
 | `redis_url_private` | Full Valkey connection URL, private/VPC URI **(secret)** |
 | `vpc_id` | VPC ID for app resource placement |
 | `do_region` | DigitalOcean region (`nyc3`) |
@@ -195,7 +224,10 @@ pulumi up --stack prod
 | Pull request to `main` | `pulumi-preview.yml` | Lint + type-check + `pulumi preview`, posts output as PR comment |
 | Push to `main` | `pulumi-up.yml` | Lint + type-check + `pulumi up --yes` |
 
-Merging to `main` is the only way to apply changes to production.
+Merging to `main` is the normal way to apply changes to production. The one
+exception is admin app onboarding (`scripts/onboard-app.sh`), which applies the
+`trusted_app_ids` config change directly; the admin must then commit and push
+that change so `main` stays in sync (see [Onboarding a new app](#onboarding-a-new-app-admin)).
 
 **Required GitHub Actions Secrets:**
 

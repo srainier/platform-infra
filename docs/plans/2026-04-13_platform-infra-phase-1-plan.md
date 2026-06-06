@@ -1,5 +1,9 @@
-> **Update 2026-06-06:** The platform now distinguishes infra-admin vs app-owner
-> roles and onboards apps via `scripts/onboard-app.sh`. See
+> **Update 2026-06-06 — historical; do not copy the code/output examples below.**
+> The platform now distinguishes infra-admin vs app-owner roles and onboards apps
+> via `scripts/onboard-app.sh`. This document is kept for narrative history only.
+> The outputs list below is now **wrong**: `postgres_admin_password` is no longer
+> exported, and apps must consume the **public** hosts. For the current output
+> contract, follow `README.md` ("How App Repos Consume Outputs") and
 > `docs/superpowers/specs/2026-06-06-platform-app-role-separation-design.md`.
 
 # Phase 1 Implementation Plan: platform-infra

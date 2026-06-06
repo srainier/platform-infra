@@ -87,8 +87,10 @@ Admin-run, **idempotent**, runs *after* the app-owner's first `pulumi up`
 (so the App resource and `<app>_user` exist):
 
 1. Resolve the app's UUID from its name via the DO API.
-2. Add it to the trusted list: `pulumi config set --path
-   'trusted_app_ids[+]=<uuid>'` (skip if present) then `pulumi up --stack prod`.
+2. Add it to the trusted list (skip if present): Pulumi has no append-path
+   syntax, so compute the next index from the current list and set that element
+   explicitly — `pulumi config set --path 'trusted_app_ids[<n>]' <uuid> --stack
+   prod` (path and value as separate args) — then `pulumi up --stack prod`.
 3. Schema grant: fetch `doadmin` creds from the DO API; temporarily add the
    admin's public IP as a trusted source (direct API, between Pulumi runs);
    `psql` → `GRANT USAGE, CREATE ON SCHEMA public TO <app>_user`; remove the
