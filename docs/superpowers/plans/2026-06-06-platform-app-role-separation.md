@@ -29,7 +29,7 @@
 - [ ] Task 6 — verify onboarding idempotency (CHECKPOINT: needs DO token)
 - [x] Task 7 — platform-infra README role separation — commit `c00289c`
 - [x] Task 8 — platform-infra docs consistency audit — commit `1b1b4c3`
-- [ ] Task 9 — open platform-infra PR (push done by controller; MERGE is your checkpoint)
+- [x] Task 9 — platform-infra PR opened: https://github.com/srainier/platform-infra/pull/3 (MERGE pending your checkpoint + `pulumi preview`)
 - [ ] Task 10 — template generated README runbook (platform-app-template)
 - [ ] Task 11 — template docs consistency + PR (platform-app-template)
 
