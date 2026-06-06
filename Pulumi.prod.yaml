@@ -9,3 +9,4 @@ config:
   platform-infra:trusted_app_ids:
     - fa236109-e18c-4bbe-a935-2862ea55f546
     - 0704f1e8-d65c-44ed-b657-13462ade9dd6
+    - 4047a9ee-1c36-4882-85ea-a0469517f935
