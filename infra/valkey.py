@@ -26,8 +26,7 @@ def create_valkey(
         do.DatabaseFirewallRuleArgs(type="ip_addr", value="10.10.0.0/16"),
     ]
     firewall_rules += [
-        do.DatabaseFirewallRuleArgs(type="app", value=app_id)
-        for app_id in trusted_app_ids
+        do.DatabaseFirewallRuleArgs(type="app", value=app_id) for app_id in trusted_app_ids
     ]
     do.DatabaseFirewall(
         "platform-valkey-firewall",
