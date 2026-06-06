@@ -13,10 +13,22 @@ This checklist covers one-time account-level setup for each SaaS service used ac
 - [ ] Note your org name — used in Stack Reference paths (`srainier/platform-infra/prod`)
 - [ ] Generate a personal access token: Account → Access Tokens
 
-**Where to store:**
+**Credential ownership — two roles, two tokens:**
+
+| Token | Owner | Used in |
+|---|---|---|
+| `PULUMI_ACCESS_TOKEN` (admin, org-admin scope) | **Infra-admin** | this repo (`platform-infra`) CI/CD |
+| `PULUMI_ACCESS_TOKEN` (app-owner's own token) | **App-owner** | their app repo CI/CD |
+
+App-owners generate their own Pulumi access token and store it as a GitHub Actions
+secret in their app repo. They do **not** use the admin token. See README →
+"Granting a new app-owner" for how to give an app-owner Read access to the
+`platform-infra/prod` stack outputs.
+
+**Where to store (infra-admin):**
 | Secret | Location |
 |---|---|
-| `PULUMI_ACCESS_TOKEN` | GitHub Actions Secret (this repo + each app repo) |
+| `PULUMI_ACCESS_TOKEN` | GitHub Actions Secret (this repo only) |
 
 ---
 
@@ -24,15 +36,24 @@ This checklist covers one-time account-level setup for each SaaS service used ac
 
 **Purpose:** Cloud provider for all managed infrastructure (Postgres, Valkey, VPC, etc.).
 
-**One-time setup:**
+**One-time setup (infra-admin):**
 - [ ] Create account at https://cloud.digitalocean.com
 - [ ] Generate a personal access token with read + write scope: API → Tokens
 - [ ] Ensure your account has enough quota for managed databases
 
-**Where to store:**
+**Credential ownership — two roles, two tokens:**
+
+The `DIGITALOCEAN_TOKEN` for **this repo** (`platform-infra`) is the
+**infra-admin's** token (full write scope — manages clusters, firewalls, VPC).
+App repos use a **separate, scoped token** issued to each app-owner via the
+`app-deployer` custom role (App Platform + database create/read only; no
+firewall or cluster write access). App-owners must **not** use the admin token.
+See README → "Granting a new app-owner" for click-by-click setup.
+
+**Where to store (infra-admin):**
 | Secret | Location |
 |---|---|
-| `DIGITALOCEAN_TOKEN` | GitHub Actions Secret (this repo) |
+| `DIGITALOCEAN_TOKEN` (admin, write scope) | GitHub Actions Secret (this repo only) |
 
 ---
 
@@ -98,11 +119,14 @@ This checklist covers one-time account-level setup for each SaaS service used ac
 
 ## GitHub Actions Secrets Summary
 
-Secrets required in **this repo** (`platform-infra`):
+Secrets required in **this repo** (`platform-infra`) — held by the **infra-admin**:
 
 | Secret | Description |
 |---|---|
-| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud access token |
-| `DIGITALOCEAN_TOKEN` | DigitalOcean API token |
+| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud access token (admin) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (admin, write scope) |
+
+App repos use the **app-owner's** own tokens (scoped `app-deployer` DO token +
+their personal Pulumi access token). They do **not** use the admin tokens above.
 
 > Secrets are set at: GitHub repo → Settings → Secrets and variables → Actions
