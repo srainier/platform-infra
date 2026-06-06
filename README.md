@@ -2,7 +2,29 @@
 
 Shared infrastructure foundation for all projects. Provisions DigitalOcean managed Postgres and Valkey (Redis-compatible), a custom VPC, and a DigitalOcean Project using Pulumi (Python SDK). All resources are exported as stack outputs for per-app Pulumi stacks to consume via Stack References.
 
-This repo is provisioned once to bootstrap the platform, then rarely touched. Application repos build on top of it — they never create their own databases or VPCs.
+---
+
+## Roles
+
+This platform is operated by two roles. Today one person may hold both, but the
+boundaries are real and enforced by Pulumi + DigitalOcean RBAC.
+
+- **Infra-admin** — owns this repo (`platform-infra`). Pulumi org admin and
+  DigitalOcean team Owner. Runs the one-time onboarding for each new app.
+- **App-owner** — owns an app repo scaffolded from `platform-app-template`.
+  Can self-serve deploy their app but **cannot** modify shared infra (firewall,
+  clusters, VPC) or read **privileged** platform secrets — notably the Postgres
+  `doadmin` password, which is never exported. They have Pulumi **Admin** on their
+  own stack and **Read** on `platform-infra/prod`, plus a scoped DigitalOcean
+  token (see "Granting a new app-owner").
+
+  > **Note on shared Valkey:** The threat model here is accidents + isolation of
+  > *privileged admin* secrets among *trusted* users — not multi-tenant isolation.
+  > Valkey has no per-app credential, so its password/URL (`redis_password`,
+  > `redis_url`) is a **deliberately shared** secret: every app-owner can read it
+  > via `StackReference` and all apps share one Valkey instance. If you need cache
+  > isolation between apps, that is a future per-app-cache story, not something the
+  > current outputs provide.
 
 ---
 
@@ -59,6 +81,75 @@ pulumi up --stack <env-name>
 
 ---
 
+## Onboarding a new app (admin)
+
+App Platform apps are not VPC members, so each app must be registered as a
+trusted source on the shared clusters, and its DB user must be granted schema
+privileges (PG15+). App-owners cannot do this (by design). Run this once per
+app, **after** the app-owner's first `pulumi up`:
+
+```bash
+export DIGITALOCEAN_TOKEN=<admin token, write scope>
+./scripts/onboard-app.sh <app-name>
+```
+
+The script (idempotent) resolves the app's UUID, adds it to `trusted_app_ids`,
+runs `pulumi up` to reconcile the firewalls, then grants the app's DB user
+`CREATE` on schema `public`. Re-running it is safe.
+
+This is the **one sanctioned exception** to "changes reach prod only via `main`"
+(see [CI/CD](#cicd)): the script edits `Pulumi.prod.yaml` and applies it directly.
+To keep `main` in sync with production, it requires a clean `Pulumi.prod.yaml` to
+start and, on a config change, prints the exact `git add/commit/push` to run
+afterwards. **Commit and push that `trusted_app_ids` change immediately** —
+otherwise the next CI `pulumi up` from `main` will drop the new app from the
+firewalls and lock it out.
+
+Prerequisites: `pulumi login`, `psql` installed, and a write-scope DO token.
+
+---
+
+## Granting a new app-owner
+
+Do this once per person. It gives them self-serve deploy of their own apps
+without admin rights to the platform.
+
+### Pulumi Cloud
+1. Go to https://app.pulumi.com/srainier → **Settings → Teams**.
+2. Create (or open) a team named `app-owners`. Add the person as a member.
+3. Go to the `platform-infra` project → `prod` stack → **Settings → Permissions**.
+4. Grant the `app-owners` team **Read** on this stack (needed so their app's
+   `StackReference` can read outputs). Do **not** grant Write/Admin.
+5. The app-owner creates their own app stack; whoever creates a stack is
+   automatically its Admin, so no further grant is needed for their app.
+
+### DigitalOcean
+1. Go to https://cloud.digitalocean.com → **Settings → Team → Roles** (or
+   **Members**) and create a **custom role** named `app-deployer` with:
+   - App Platform: **Create, Read, Update, Delete** (`app:*`)
+   - Databases: **Create** and **Read** only (so they can create their per-app
+     db/user/pool but cannot change firewalls or resize/delete clusters)
+   - Networking/VPC: **no write** (Read at most)
+   - Everything else: none
+2. Invite the person to the DigitalOcean team with the `app-deployer` role.
+3. Have them generate a Personal Access Token (API → Tokens). With the custom
+   role applied, the token inherits those scopes. They use it as
+   `DIGITALOCEAN_TOKEN` locally and as a GitHub Actions secret in their app repo.
+
+> **Unverified — verify before relying on this boundary.** The `app-deployer`
+> role above (App Platform `*` + Databases Create/Read, no Update) is the
+> *intended* boundary, but it has **not** yet been validated against a real
+> scoped token. DigitalOcean's database scopes are per-resource-*type*, and it is
+> not yet confirmed that creating a per-app **database, user, and connection
+> pool** inside an existing shared cluster — and reading the generated user/pool
+> connection attributes — all classify as `database:create`/`database:read`
+> rather than `database:update`. If any of those calls require `database:update`,
+> app-owner self-service will fail before admin onboarding, and the role (or this
+> doc) must be loosened. First app-owner onboarding should run end-to-end with an
+> actual `app-deployer` token and record the exact scopes that proved sufficient.
+
+---
+
 ## How App Repos Consume Outputs
 
 App repos reference this stack's outputs via Pulumi Stack References. Example:
@@ -68,13 +159,12 @@ import pulumi
 
 platform = pulumi.StackReference("srainier/platform-infra/prod")
 
-postgres_host = platform.get_output("postgres_host")
+# Use the PUBLIC host from App Platform (apps are not VPC members).
+postgres_host = platform.get_output("postgres_host_public")
 postgres_port = platform.get_output("postgres_port")
 postgres_admin_user = platform.get_output("postgres_admin_user")
-postgres_admin_password = platform.get_secret_output("postgres_admin_password")
 
-redis_host = platform.get_output("redis_host")
-redis_url = platform.get_secret_output("redis_url")
+redis_url = platform.get_secret_output("redis_url")  # public URI
 
 vpc_id = platform.get_output("vpc_id")
 do_region = platform.get_output("do_region")
@@ -87,18 +177,25 @@ do_region = platform.get_output("do_region")
 | Output | Description |
 |---|---|
 | `postgres_cluster_id` | Managed Postgres cluster ID |
-| `postgres_host` | Private hostname (VPC) |
+| `postgres_host` | Private hostname — **VPC only** (Droplets, not App Platform) |
+| `postgres_host_public` | Public hostname — **use this from App Platform apps** |
 | `postgres_port` | Port (usually 25060) |
 | `postgres_admin_user` | Admin username |
-| `postgres_admin_password` | Admin password **(secret)** |
-| `postgres_connection_pool_host` | PgBouncer private hostname |
-| `redis_host` | Valkey private hostname (VPC) |
+| `postgres_connection_pool_host` | PgBouncer private hostname — **VPC only** |
+| `postgres_connection_pool_host_public` | PgBouncer public hostname — **use this from App Platform apps** |
+| `redis_host` | Valkey private hostname — **VPC only** |
+| `redis_host_public` | Valkey public hostname — **use this from App Platform apps** |
 | `redis_port` | Valkey port |
-| `redis_password` | Valkey auth password **(secret)** |
-| `redis_url` | Full Valkey connection URL **(secret)** |
+| `redis_password` | Valkey auth password **(secret, shared across all apps)** |
+| `redis_url` | Full Valkey connection URL, public URI **(secret, shared across all apps)** — App Platform apps use this |
+| `redis_url_private` | Full Valkey connection URL, private/VPC URI **(secret)** |
 | `vpc_id` | VPC ID for app resource placement |
 | `do_region` | DigitalOcean region (`nyc3`) |
 | `dns_zone` | Root domain (null — not yet configured) |
+
+> **`postgres_admin_password` is intentionally not exported.** App-owners have Read on this stack via StackReference; no admin secret may be exported. The admin onboarding script reads `doadmin` credentials directly from the DO API in `onboard-app.sh`.
+
+> **App Platform apps must use the `*_public` variants** — App Platform services are not VPC members and cannot reach private hosts.
 
 > **Note on `redis_*` outputs:** The underlying engine is DigitalOcean Managed Valkey (Redis 8, Redis-compatible). Output keys use `redis_*` naming so app repos don't need changes.
 
@@ -127,7 +224,10 @@ pulumi up --stack prod
 | Pull request to `main` | `pulumi-preview.yml` | Lint + type-check + `pulumi preview`, posts output as PR comment |
 | Push to `main` | `pulumi-up.yml` | Lint + type-check + `pulumi up --yes` |
 
-Merging to `main` is the only way to apply changes to production.
+Merging to `main` is the normal way to apply changes to production. The one
+exception is admin app onboarding (`scripts/onboard-app.sh`), which applies the
+`trusted_app_ids` config change directly; the admin must then commit and push
+that change so `main` stays in sync (see [Onboarding a new app](#onboarding-a-new-app-admin)).
 
 **Required GitHub Actions Secrets:**
 
