@@ -27,9 +27,9 @@
 - [x] Task 4 — outputs hygiene — commit `08dac84` (admin_password dropped, public host/uri outputs added; ruff + pyright clean)
 - [x] Task 5 — onboard-app.sh script — commit `adc4dcc` (bash -n clean, idempotent, re-fetch-before-IP-removal). NOT executed.
 - [ ] Task 6 — verify onboarding idempotency (CHECKPOINT: needs DO token)
-- [ ] Task 7 — platform-infra README role separation
-- [ ] Task 8 — platform-infra docs consistency audit
-- [ ] Task 9 — open platform-infra PR (CHECKPOINT)
+- [x] Task 7 — platform-infra README role separation — commit `c00289c`
+- [x] Task 8 — platform-infra docs consistency audit — commit `1b1b4c3`
+- [ ] Task 9 — open platform-infra PR (push done by controller; MERGE is your checkpoint)
 - [ ] Task 10 — template generated README runbook (platform-app-template)
 - [ ] Task 11 — template docs consistency + PR (platform-app-template)
 
