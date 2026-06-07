@@ -100,10 +100,11 @@ runs `pulumi up` to reconcile the firewalls, then grants the app's DB user
 This is the **one sanctioned exception** to "changes reach prod only via `main`"
 (see [CI/CD](#cicd)): the script edits `Pulumi.prod.yaml` and applies it directly.
 To keep `main` in sync with production, it requires a clean `Pulumi.prod.yaml` to
-start and, on a config change, prints the exact `git add/commit/push` to run
-afterwards. **Commit and push that `trusted_app_ids` change immediately** —
-otherwise the next CI `pulumi up` from `main` will drop the new app from the
-firewalls and lock it out.
+start and, on a config change, prints the exact commit commands to run
+afterwards. **Merge that `trusted_app_ids` change immediately** — otherwise the
+next CI `pulumi up` from `main` will drop the new app from the firewalls and
+lock it out. If direct pushes to `main` are blocked, create a short-lived branch,
+open a PR, wait for preview checks, and merge it right away.
 
 Prerequisites: `pulumi login`, `psql` installed, and a write-scope DO token.
 
@@ -226,8 +227,9 @@ pulumi up --stack prod
 
 Merging to `main` is the normal way to apply changes to production. The one
 exception is admin app onboarding (`scripts/onboard-app.sh`), which applies the
-`trusted_app_ids` config change directly; the admin must then commit and push
-that change so `main` stays in sync (see [Onboarding a new app](#onboarding-a-new-app-admin)).
+`trusted_app_ids` config change directly; the admin must then merge that change
+back to `main` so future CI runs do not remove the trusted source (see
+[Onboarding a new app](#onboarding-a-new-app-admin)).
 
 **Required GitHub Actions Secrets:**
 
