@@ -19,7 +19,7 @@
 #
 # IMPORTANT: this applies a production change directly (the trusted_app_ids
 # config edit + `pulumi up`). The script requires a clean Pulumi.prod.yaml to
-# start and, on success, tells you exactly what to commit and push so `main`
+# start and, on success, tells you exactly what to commit and merge so `main`
 # stays in sync (see "Onboarding a new app" in README.md).
 set -euo pipefail
 
@@ -44,7 +44,7 @@ AUTH=(-H "Authorization: Bearer ${DIGITALOCEAN_TOKEN}")
 cd "$(dirname "$0")/.."   # platform-infra repo root
 
 # We will edit Pulumi.prod.yaml; require it clean so the resulting diff is
-# exactly our trusted_app_ids change and easy to review/commit/push afterwards.
+# exactly our trusted_app_ids change and easy to review/commit/merge afterwards.
 if ! git diff --quiet -- Pulumi.prod.yaml || ! git diff --cached --quiet -- Pulumi.prod.yaml; then
   echo "ERROR: Pulumi.prod.yaml has uncommitted changes." >&2
   echo "       Commit or stash them first so this run's config edit is isolated." >&2
@@ -183,11 +183,19 @@ echo "==> Done. '${APP_NAME}' is a trusted source and ${DB_USER} can create tabl
 if [[ "${CONFIG_CHANGED}" == "1" ]]; then
   echo
   echo "    IMPORTANT: this run edited Pulumi.prod.yaml and applied it directly."
-  echo "    Commit and push that change NOW so 'main' matches production and the"
+  echo "    Commit and merge that change NOW so 'main' matches production and the"
   echo "    next CI 'pulumi up' does not drop '${APP_NAME}' from the firewalls:"
   echo
+  echo "        git switch -c chore/trust-${APP_NAME}"
   echo "        git add Pulumi.prod.yaml"
   echo "        git commit -m 'chore: trust ${APP_NAME} (${APP_ID}) on shared clusters'"
-  echo "        git push"
+  echo "        git push -u origin HEAD"
+  echo "        gh pr create --base main --head chore/trust-${APP_NAME} \\"
+  echo "          --title 'chore: trust ${APP_NAME} on shared clusters' \\"
+  echo "          --body 'Adds ${APP_NAME} (${APP_ID}) to trusted_app_ids after admin onboarding.'"
+  echo "        gh pr merge --squash --delete-branch"
+  echo
+  echo "    If direct pushes to main are allowed in this repo, a direct git push is"
+  echo "    also fine; the required outcome is that origin/main contains the new ID."
 fi
 echo "    Trigger a redeploy if the first deploy failed before onboarding."
