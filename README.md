@@ -137,17 +137,31 @@ without admin rights to the platform.
    role applied, the token inherits those scopes. They use it as
    `DIGITALOCEAN_TOKEN` locally and as a GitHub Actions secret in their app repo.
 
-> **Unverified — verify before relying on this boundary.** The `app-deployer`
-> role above (App Platform `*` + Databases Create/Read, no Update) is the
-> *intended* boundary, but it has **not** yet been validated against a real
-> scoped token. DigitalOcean's database scopes are per-resource-*type*, and it is
-> not yet confirmed that creating a per-app **database, user, and connection
-> pool** inside an existing shared cluster — and reading the generated user/pool
-> connection attributes — all classify as `database:create`/`database:read`
-> rather than `database:update`. If any of those calls require `database:update`,
-> app-owner self-service will fail before admin onboarding, and the role (or this
-> doc) must be loosened. First app-owner onboarding should run end-to-end with an
-> actual `app-deployer` token and record the exact scopes that proved sufficient.
+**If you are both admin and app-owner** (one DO account), you can't hold a second
+role on your own team. Instead create a **custom-scoped** Personal Access Token
+(API → Tokens → Generate New Token → *Custom Scopes*) with exactly:
+
+- `app`: **create, read, update, delete**
+- `database`: **create, read**
+
+Store it as its own doctl context (`doctl auth init --context app-deployer`) and
+keep your full-access token in a separate context (e.g. `do-admin`) for
+`onboard-app.sh` only.
+
+> **Verified (2026-10, `hello-walkthrough`).** The scopes above were validated
+> end to end with a real custom-scoped token: creating the per-app database,
+> user, and connection pool on the shared cluster, creating and deploying the
+> App Platform app, `pulumi refresh`, and the app repo's CI `pulumi up` all
+> succeed. As intended, it got **403** on account info, VPC reads, and a
+> `database:update` call (the `PUT` described below). Firewall and cluster
+> changes require that same `database:update` scope.
+>
+> One caveat: DO populates a `DatabaseUser`'s `settings` on the server side, which
+> appears as a diff on the next `pulumi up`. Applying it is a `PUT` that needs
+> `database:update` and fails with 403. Apps scaffolded from
+> `platform-app-template` set `ignore_changes=["settings"]` on the user to avoid
+> this. If an older app hits it, run `pulumi refresh` and add that option rather
+> than widening the token.
 
 ---
 
