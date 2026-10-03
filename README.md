@@ -89,7 +89,9 @@ privileges (PG15+). App-owners cannot do this (by design). Run this once per
 app, **after** the app-owner's first `pulumi up`:
 
 ```bash
-export DIGITALOCEAN_TOKEN=<admin token, write scope>
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"   # psql, if installed via Homebrew libpq
+export DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/do-admin.token)"
+pulumi preview --stack prod --refresh   # optional: confirm no drift first
 ./scripts/onboard-app.sh <app-name>
 ```
 
@@ -107,6 +109,36 @@ lock it out. If direct pushes to `main` are blocked, create a short-lived branch
 open a PR, wait for preview checks, and merge it right away.
 
 Prerequisites: `pulumi login`, `psql` installed, and a write-scope DO token.
+
+**What the app-owner sees.** Apps generated from `platform-app-template` after
+its PR #9 come up on their first `pulumi up` with `/api/health` reporting
+`"database": "waiting"`, and connect by themselves within about a minute of
+onboarding, so no redeploy is needed. Older apps crash on startup until
+onboarded and then need an explicit redeploy:
+`doctl apps create-deployment <app-uuid>` (or a push to their `main`). A plain
+`pulumi up` does **not** redeploy them, because nothing in the spec changed.
+
+> **Harmless drift you'll see on refresh.** `onboard-app.sh` re-PUTs the whole
+> firewall rule list for its temporary admin IP, so the rules get new `uuid`s
+> and `createdAt`. `pulumi preview --refresh` shows that as output-only changes
+> while planning `0 to update`.
+
+## Offboarding an app (admin)
+
+The `app-deployer` token can't delete an app's database, user or pool: DELETEs
+return **403**, since it has no `database:delete` scope. Run the app's destroy with
+the admin token, from the app repo:
+
+```bash
+cd <app-repo>/infra
+DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/do-admin.token)" pulumi destroy
+pulumi stack rm prod
+```
+
+Then, **after** the destroy, open a PR here that removes the app's UUID from
+`trusted_app_ids`. CI's `pulumi up` on merge drops it from both firewalls.
+(Note: `pulumi preview --destroy` doesn't exist. Use `pulumi destroy --preview-only`.
+It makes no API calls, so it can't tell you whether a token is allowed to delete.)
 
 ---
 
@@ -144,9 +176,20 @@ role on your own team. Instead create a **custom-scoped** Personal Access Token
 - `app`: **create, read, update, delete**
 - `database`: **create, read**
 
-Store it as its own doctl context (`doctl auth init --context app-deployer`) and
-keep your full-access token in a separate context (e.g. `do-admin`) for
-`onboard-app.sh` only.
+Pulumi reads the token only from `DIGITALOCEAN_TOKEN`. doctl contexts don't
+carry over to Pulumi, and doctl can't display a saved token again. So when you
+generate each token, save it to a private file as well as (optionally) a doctl
+context:
+
+```bash
+mkdir -p ~/.config/platform && chmod 700 ~/.config/platform
+(umask 077; pbpaste > ~/.config/platform/app-deployer.token)   # app-owner work
+(umask 077; pbpaste > ~/.config/platform/do-admin.token)       # onboard-app.sh only
+doctl auth init --context app-deployer                         # optional, for doctl
+```
+
+Use it per command: `DIGITALOCEAN_TOKEN="$(cat ~/.config/platform/app-deployer.token)" pulumi up`.
+Keep the full-access token for `onboard-app.sh` and offboarding only.
 
 > **Verified (2026-10, `hello-walkthrough`).** The scopes above were validated
 > end to end with a real custom-scoped token: creating the per-app database,
@@ -161,7 +204,14 @@ keep your full-access token in a separate context (e.g. `do-admin`) for
 > `database:update` and fails with 403. Apps scaffolded from
 > `platform-app-template` set `ignore_changes=["settings"]` on the user to avoid
 > this. If an older app hits it, run `pulumi refresh` and add that option rather
-> than widening the token.
+> than widening the token. Expect the `up` after any app-stack refresh to
+> rewrite every service env var and redeploy once: DO returns env vars in its
+> own order, which differs from the code.
+>
+> **Re-verified (2026-10, `hello-verify`)** on a fresh app with the same token:
+> create, deploy, refresh, CI `pulumi up` and a no-change second run all
+> succeed. DELETE on the app's db, user and pool returns **403**, so teardown
+> needs the admin token (see "Offboarding an app").
 
 ---
 
