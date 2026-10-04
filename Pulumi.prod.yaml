@@ -6,4 +6,4 @@ config:
   platform-infra:domain: ""
   # App Platform app UUIDs allowed through the shared cluster firewalls.
   # Managed by scripts/onboard-app.sh (admin) when onboarding a new app.
-  platform-infra:trusted_app_ids: [ed276e4d-444a-48dc-ab4a-aa43e9b6b9cd, e5edc8e2-4b65-44c3-9114-caca02662545]
+  platform-infra:trusted_app_ids: [e5edc8e2-4b65-44c3-9114-caca02662545]
